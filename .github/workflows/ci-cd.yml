@@ -1,0 +1,54 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main  # Ejecutar el pipeline cuando haya un push a la rama main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        run: docker build -t discord-bot .
+
+      - name: Save Docker image
+        run: docker save discord-bot | gzip > discord-bot.tar.gz
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-image
+          path: discord-bot.tar.gz
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-image
+          path: discord-bot.tar.gz
+
+      - name: Deploy to remote server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          scp -o StrictHostKeyChecking=no discord-bot.tar.gz $SSH_USER@$SSH_HOST:/tmp
+          ssh -i $SSH_KEY $SSH_USER@$SSH_HOST << 'EOF'
+          docker load < /tmp/discord-bot.tar.gz
+          docker stop discord-bot || true
+          docker rm discord-bot || true
+          docker run -d --env-file /path/to/.env --name discord-bot discord-bot
+          EOF
