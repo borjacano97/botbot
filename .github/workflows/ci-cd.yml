@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - main  # Ejecutar el pipeline cuando haya un push a la rama main
+      - master  # Ejecutar el pipeline cuando haya un push a la rama master
 
 jobs:
   build:
@@ -39,16 +39,23 @@ jobs:
           name: docker-image
           path: discord-bot.tar.gz
 
-      - name: Deploy to remote server
+      - name: Deploy to remote server with Docker Compose
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
+          # Copiar el artefacto al servidor remoto
           scp -o StrictHostKeyChecking=no discord-bot.tar.gz $SSH_USER@$SSH_HOST:/tmp
+
+          # Conectar al servidor remoto y ejecutar Docker Compose
           ssh -i $SSH_KEY $SSH_USER@$SSH_HOST << 'EOF'
+          cd ~/projects/botbot
+          
+          # Extraer la imagen Docker
           docker load < /tmp/discord-bot.tar.gz
-          docker stop discord-bot || true
-          docker rm discord-bot || true
-          docker run -d --env-file /path/to/.env --name discord-bot discord-bot
+
+          # Actualizar servicios con Docker Compose
+          docker-compose down || true
+          docker-compose up --build -d
           EOF
