@@ -1,6 +1,5 @@
 name: CI/CD Pipeline
 
-
 on:
   push:
     branches:
@@ -8,60 +7,28 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Usar el runner local
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
       - name: Build Docker image
-        run: docker build -t discord-bot .
-
-      - name: Save Docker image
-        run: docker save discord-bot | gzip > discord-bot.tar.gz
-
-      - name: Upload Docker image artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: docker-image
-          path: discord-bot.tar.gz
-
-  deploy:
-    needs: build
-    runs-on: self-hosted
-
-    steps:
-      - name: Download Docker image artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: docker-image
-          path: discord-bot.tar.gz
-
-      - name: Deploy to remote server with Docker Compose
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
-          # Copiar el artefacto al servidor remoto
-          scp -o StrictHostKeyChecking=no discord-bot.tar.gz $SSH_USER@$SSH_HOST:/tmp
+          docker build -t discord-bot .
+          docker save discord-bot | gzip > /tmp/discord-bot.tar.gz
 
-          # Conectar al servidor remoto y realizar el despliegue
-          ssh -i $SSH_KEY $SSH_USER@$SSH_HOST << 'EOF'
+      - name: Deploy Locally
+        run: |
           cd ~/projects/botbot
           
-          # Actualizar el código desde el repositorio remoto
+          # Asegurarse de que el repositorio está actualizado
           git reset --hard
           git pull origin master
           
           # Extraer la imagen Docker
           docker load < /tmp/discord-bot.tar.gz
-
+          
           # Actualizar servicios con Docker Compose
           docker-compose down || true
           docker-compose up --build -d
-          EOF
-
