@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+  discord-bot:
+    container_name: discord-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}  # Carga el token desde el archivo .env
+    env_file:
+      - .env  # Archivo para variables de entorno
+    restart: always  # Reinicia automáticamente si el contenedor falla

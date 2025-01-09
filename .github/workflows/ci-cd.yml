@@ -48,9 +48,13 @@ jobs:
           # Copiar el artefacto al servidor remoto
           scp -o StrictHostKeyChecking=no discord-bot.tar.gz $SSH_USER@$SSH_HOST:/tmp
 
-          # Conectar al servidor remoto y ejecutar Docker Compose
+          # Conectar al servidor remoto y realizar el despliegue
           ssh -i $SSH_KEY $SSH_USER@$SSH_HOST << 'EOF'
           cd ~/projects/botbot
+          
+          # Actualizar el código desde el repositorio remoto
+          git reset --hard
+          git pull origin master
           
           # Extraer la imagen Docker
           docker load < /tmp/discord-bot.tar.gz
@@ -59,3 +63,4 @@ jobs:
           docker-compose down || true
           docker-compose up --build -d
           EOF
+
