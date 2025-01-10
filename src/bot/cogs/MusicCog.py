@@ -687,6 +687,20 @@ class MusicCog(commands.Cog):
         await interaction.response.send_message(f"🎵 Canciones en la cola:\n" + "\n".join(songs), ephemeral=True)
         logger.info("Listed queue via command")
     
+    @queue_group.command(name="remove", description="Remove a song from the queue")
+    async def queue_rm(self, interaction: discord.Interaction, index: int) -> None:
+        if not self.music_player:
+            await interaction.response.send_message("❌ Reproductor no activo", ephemeral=True)
+            return
+        
+        song = self.music_player.remove_from_queue(index - 1)
+        if not song:
+            await interaction.response.send_message("❌ No se encontró la canción en la cola.", ephemeral=True)
+            return
+
+        await interaction.response.send_message(f"✅ Canción eliminada de la cola: {song.title}", ephemeral=True)
+        logger.info(f"Removed song from queue via command: {song.title}")
+    
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         # Sincronizar los comandos de barra
