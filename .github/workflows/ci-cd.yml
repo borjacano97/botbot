@@ -31,4 +31,28 @@ jobs:
           
           # Actualizar servicios con Docker Compose
           docker-compose down || true
-          docker-compose up --build -d
+
+          # Registrar docker-compose como un daemon
+          nohup docker-compose up --build -d &
+
+          # Crear un servicio systemd para arrancar automáticamente al iniciar el sistema
+          sudo bash -c 'cat > /etc/systemd/system/botbot.service <<EOF
+          [Unit]
+          Description=BotBot Docker Compose Service
+          After=docker.service
+          Requires=docker.service
+
+          [Service]
+          Restart=always
+          WorkingDirectory=/home/$(whoami)/projects/botbot
+          ExecStart=/usr/local/bin/docker-compose up --build
+          ExecStop=/usr/local/bin/docker-compose down
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF'
+
+          # Recargar systemd y habilitar el servicio
+          sudo systemctl daemon-reload
+          sudo systemctl enable botbot.service
+          sudo systemctl start botbot.service
