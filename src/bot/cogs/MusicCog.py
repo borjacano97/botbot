@@ -38,7 +38,13 @@ class IMusicPlayer(abc.ABC):
 
     @abc.abstractmethod
     def add_to_queue(self, song: Song) -> None: pass
-
+    
+    @abc.abstractmethod
+    def get_queue(self) -> List[Song]: pass
+    
+    @abc.abstractmethod
+    def remove_from_queue(self, index: int) -> Song|None: pass
+    
     @abc.abstractmethod
     def play(self) -> None: pass
 
@@ -89,6 +95,17 @@ class DowloadedMusicPlayer(IMusicPlayer):
     def add_to_queue(self, song: Song) -> None:
         self.queue.append(song)
         logger.debug(f"Added to queue: {song.title}")
+        
+    def get_queue(self) -> List[Song]:
+        return list(self.queue)
+    
+    def remove_from_queue(self, index: int) -> Song|None:
+        if 0 <= index < len(self.queue):
+            song = self.queue[index]
+            self.queue.remove(song)
+            logger.debug(f"Removed from queue: {song.title}")
+            return song
+        return None
 
     def play(self) -> None:
         if not self.voice_client or not self.queue:
@@ -173,6 +190,17 @@ class StreamMusicPlayer(IMusicPlayer):
 
     def __del__(self) -> None:
         self.destroy()
+
+    def get_queue(self) -> List[Song]:
+        return list(self.queue)
+    
+    def remove_from_queue(self, index: int) -> Song|None:
+        if 0 <= index < len(self.queue):
+            song = self.queue[index]
+            self.queue.remove(song)
+            logger.debug(f"Removed from queue: {song.title}")
+            return song
+        return None
 
     def destroy(self) -> None:
         if self.voice_client:
@@ -332,6 +360,7 @@ class MusicCog(commands.Cog):
     # Grupos de comandos
     music_group = discord.app_commands.Group(name="music", description="Music commands")
     fav_group = discord.app_commands.Group(name="fav", description="Favorite songs commands", parent=music_group)
+    queue_group = discord.app_commands.Group(name="queue", description="Queue commands", parent=music_group)
 
     @music_group.command(name="pause", description="Pause the current song")
     async def music_pause(self, interaction: discord.Interaction) -> None:
@@ -627,7 +656,6 @@ class MusicCog(commands.Cog):
             self.music_player.add_to_queue(song)
             
             if self.music_player.state != PlayerState.PLAYING:
-                await interaction.followup.send("🎵 Reproduciendo...", ephemeral=True)
                 if interaction.guild is None:
                     await interaction.followup.send("❌ No estás en un servidor.", ephemeral=True)
                     return
@@ -638,9 +666,27 @@ class MusicCog(commands.Cog):
                     return
                 await self.music_player.connect(member.voice.channel)
                 self.music_player.play()
-                await interaction.followup.send("🎵 Reproduciendo...", ephemeral=True)
+                await interaction.followup.send(f"🎵 Reproduciendo {song.title}", ephemeral=True)
                 logger.info(f"Playing song from URL: {url}")
-            
+            else: 
+                await interaction.followup.send("🎵 Canción añadida a la cola.", ephemeral=True)
+                logger.info(f"Added song to queue from URL: {url}")
+    
+    
+    @queue_group.command(name="list", description="List the songs in the queue")
+    async def queue_list(self, interaction: discord.Interaction) -> None:
+        if not self.music_player:
+            await interaction.response.send_message("❌ Reproductor no activo", ephemeral=True)
+            return
+        q = self.music_player.get_queue()
+        if not q or len(q) == 0:
+            await interaction.response.send_message("❌ La cola está vacía.", ephemeral=True)
+            return
+
+        songs = [f"{index + 1}. {song.title}" for index, song in enumerate(q)]
+        await interaction.response.send_message(f"🎵 Canciones en la cola:\n" + "\n".join(songs), ephemeral=True)
+        logger.info("Listed queue via command")
+    
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         # Sincronizar los comandos de barra
