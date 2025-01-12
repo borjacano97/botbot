@@ -413,7 +413,18 @@ class MusicCog(commands.Cog):
         self.music_player.set_volume(volume_01)
         await interaction.response.send_message(f"🔊 Volumen ajustado a {volume}%.", ephemeral=True)
         logger.info(f"Set volume to {volume}% via command")
-
+        
+    @music_group.command(name="leave", description="Leave the voice channel")
+    async def music_leave(self, interaction: discord.Interaction) -> None:
+        if not self.music_player:
+            await interaction.response.send_message("❌ Reproductor no activo", ephemeral=True)
+            return
+        
+        self.music_player.destroy()
+        await interaction.response.send_message("👋 Saliendo del canal de voz.", ephemeral=True)
+        logger.info("Left voice channel via command")
+        
+        
     @fav_group.command(name="play", description="Play a favorite song")
     async def fav_play(self, interaction: discord.Interaction) -> None:
         # Obtener canciones favoritas de la base de datos
